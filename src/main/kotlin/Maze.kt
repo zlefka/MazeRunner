@@ -13,37 +13,32 @@ class Maze() {
 
         maze = Array(actualSize) { IntArray(actualSize) { 1 } }
 
-        val start = Pair(Random.nextInt(1, actualSize - 1), 0)
-        val exit = Pair(actualSize - 2, actualSize - 1)
+        val start = Point(Random.nextInt(1, actualSize - 1), 0)
+        val exit = Point(actualSize - 2, actualSize - 1)
 
-        maze[start.first][start.second] = 0
-        maze[exit.first][exit.second - 1] = 0
+        maze[start.x][start.y] = 0
+        maze[exit.x][exit.y - 1] = 0
 
 
 
-        generateMaze(start.first, start.second, actualSize)
+        generateMaze(start.x, start.y, actualSize)
 
-        maze[exit.first][exit.second] = 0
-        maze[exit.first][exit.second - 1] = 0
+        maze[exit.x][exit.y] = 0
+        maze[exit.x][exit.y - 1] = 0
 
     }
 
-    private fun generateMaze(x: Int, y: Int, param: Int) {
+    private fun generateMaze(x: Int, y: Int, size: Int) {
         maze[x][y] = 0
 
-        val directions = listOf(
-            Pair(-2, 0),
-            Pair(0, -2),
-            Pair(2, 0),
-            Pair(0, 2),
-        ).shuffled()
+        val directions = Direction.entries.shuffled()
 
-        for ((dirX, dirY) in directions) {
-            val newX = x + dirX
-            val newY = y + dirY
-            if (newX in 1 until param - 1 && newY in 1 until param - 1 && maze[newX][newY] == 1) {
-                maze[x + dirX / 2][y + dirY / 2] = 0
-                generateMaze(newX, newY, param)
+        for (dir in directions) {
+            val newX = x + dir.dx * 2
+            val newY = y + dir.dy * 2
+            if (newX in 1 until size - 1 && newY in 1 until size - 1 && maze[newX][newY] == 1) {
+                maze[x + dir.dx][y + dir.dy] = 0
+                generateMaze(newX, newY, size)
             }
         }
     }
@@ -69,16 +64,16 @@ class Maze() {
             val loadedMaze = lines.map { line ->
                 line.trim().split(" ").map { section ->
                     when (section) {
-                        "1" -> 1
-                        "0" -> 0
+                        "1"  -> 1
+                        "0"  -> 0
                         else -> throw IllegalArgumentException()
                     }
                 }.toIntArray()
-            }.toTypedArray() // преобразует List<IntArray> в Array<IntArray>
+            }.toTypedArray()
 
             val size = loadedMaze.size
 
-            if (loadedMaze.any { it.size != size }) { // проверка квадратности лабиринта
+            if (loadedMaze.any { it.size != size }) {
                 println(error)
                 return
             }
@@ -113,36 +108,29 @@ class Maze() {
         val currentMaze = maze
         val size = currentMaze.size
         val pathMaze = currentMaze.map { it.copyOf() }.toTypedArray()
-        var startX = -1
-        for (i in 0 until size) {
-            if (currentMaze[i][0] == 0) {
-                startX = i
-                break
-            }
-        }
-        if (startX == -1) return // нет старта
+        val startX = maze.indexOfFirst { it[0] == 0 }
+        if (startX == -1) return
 
-        val start = Pair(startX, 0)
+        val start = Point(startX, 0)
 
-        var exitX = -1
-        for (i in 0 until size) {
-            if (currentMaze[i][size - 1] == 0) {
-                exitX = i
-                break
-            }
-        }
-        if (exitX == -1) return // нет выхода
+        var exitX = maze.indexOfFirst { it[size - 1] == 0 }
 
-        val exit = Pair(exitX, size - 1)
-        dfs(start.first, start.second, pathMaze, exit, size)
+        if (exitX == -1) return
 
+        val exit = Point(exitX, size - 1)
+        dfs(start, pathMaze, exit, size)
+
+        printEscape(size, pathMaze)
+    }
+
+    private fun printEscape(size: Int, pathMaze: Array<IntArray>) {
         for (i in 0 until size) {
             for (j in 0 until size) {
                 print(
                     when (pathMaze[i][j]) {
-                        1 -> "\u2588\u2588"   // стена
-                        2 -> "//"             // путь
-                        else -> "  "          // пустая клетка
+                        1    -> "\u2588\u2588"
+                        2    -> "//"
+                        else -> "  "
                     }
                 )
             }
@@ -150,22 +138,31 @@ class Maze() {
         }
     }
 
-    private fun dfs(x: Int, y: Int, pathMaze: Array<IntArray>, exit: Pair<Int, Int>, size: Int, ): Boolean {
-        if (x !in 0 until size || y !in 0 until size) return false
-        if (pathMaze[x][y] != 0) return false // стена или уже посещено
-        if (x == exit.first && y == exit.second) { // достигли выхода
-            pathMaze[x][y] = 2 // пометка пути
+    private fun dfs(
+        current: Point,
+        pathMaze: Array<IntArray>,
+        exit: Point,
+        size: Int
+    ): Boolean {
+        if (current.x !in 0 until size || current.y !in 0 until size) return false
+        if (pathMaze[current.x][current.y] != 0) return false
+
+        if (current == exit) {
+            pathMaze[current.x][current.y] = 2
             return true
         }
 
-        pathMaze[x][y] = 2 // временная отметка
+        pathMaze[current.x][current.y] = 3
 
-        val directions = listOf(Pair(-1,0), Pair(1,0), Pair(0,-1), Pair(0,1))
-        for ((dx, dy) in directions) {
-            if (dfs(x + dx, y + dy, pathMaze, exit, size)) return true
+        for (dir in Direction.entries) {
+            val next = Point(current.x + dir.dx, current.y + dir.dy)
+            if (dfs(next, pathMaze, exit, size)) {
+                pathMaze[current.x][current.y] = 2
+                return true
+            }
         }
 
-        pathMaze[x][y] = 0 // откат, если путь не найден
+        pathMaze[current.x][current.y] = 0
         return false
     }
 
