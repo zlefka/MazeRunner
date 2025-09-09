@@ -128,9 +128,9 @@ class Maze() {
             for (j in 0 until size) {
                 print(
                     when (pathMaze[i][j]) {
-                        1    -> "\u2588\u2588"
-                        2    -> "//"
-                        else -> "  "
+                        1    -> "\u2588\u2588"  // wall
+                        2    -> "//"  // path
+                        else -> "  "  // way
                     }
                 )
             }
@@ -145,6 +145,7 @@ class Maze() {
         size: Int
     ): Boolean {
         if (current.x !in 0 until size || current.y !in 0 until size) return false
+
         if (pathMaze[current.x][current.y] != 0) return false
 
         if (current == exit) {
